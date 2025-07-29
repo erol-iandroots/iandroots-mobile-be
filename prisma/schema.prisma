@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and user management
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  aiRequests AIRequest[]
+  apiKeys    APIKey[]
+  
+  @@map("users")
+}
+
+// API Keys for authentication
+model APIKey {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  name      String
+  userId    String   @db.ObjectId
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("api_keys")
+}
+
+// AI Request logs
+model AIRequest {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @db.ObjectId
+  provider         String   // "openai", "anthropic", "gemini", etc.
+  model            String   // "gpt-4", "claude-3", etc.
+  prompt           String
+  response         String?
+  tokenUsage       Json?    // Store token usage info
+  cost             Float?   // Estimated cost
+  status           String   // "pending", "completed", "failed"
+  errorMessage     String?
+  processingTimeMs Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("ai_requests")
+}
+
+// AI Model configurations
+model AIModel {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  name         String  @unique
+  provider     String  // "openai", "anthropic", "gemini"
+  modelId      String  // API model identifier
+  description  String?
+  isActive     Boolean @default(true)
+  costPer1kTokens Float? // Cost per 1000 tokens
+  maxTokens    Int?    // Maximum tokens supported
+  
+  @@map("ai_models")
+}
+
+// Usage analytics
+model UsageAnalytics {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  date        DateTime @db.Date
+  provider    String
+  model       String
+  requestCount Int     @default(0)
+  tokenCount   Int     @default(0)
+  totalCost    Float   @default(0)
+  
+  @@unique([userId, date, provider, model])
+  @@map("usage_analytics")
+}
