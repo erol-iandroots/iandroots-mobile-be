@@ -13,18 +13,33 @@ export class UsersService {
     private readonly userModel: Model<User>,
   ) {}
   async create(createUserDto: CreateUserDto) {
-    const existingUser = await this.userModel.findOne({
-      userId: createUserDto.userId,
-    });
-    if (existingUser) {
+    try {
+      const existingUser = await this.userModel.findOne({
+        userId: createUserDto.userId,
+      });
+      if (existingUser) {
+        throw new AppException(
+          ErrorCodes.USER_ALREADY_EXISTS,
+          'User with this userId already exists',
+          HttpStatus.CONFLICT,
+        );
+      }
+      const newUser = await this.userModel.create(createUserDto);
+      return {
+        success: true,
+        data: newUser,
+        message: 'User created successfully',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
+      }
       throw new AppException(
-        ErrorCodes.USER_ALREADY_EXISTS,
-        'User with this userId already exists',
-        HttpStatus.CONFLICT,
+        ErrorCodes.INTERNAL_SERVER_ERROR,
+        'An error occurred while creating the user',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      return 'User already exists';
     }
-    await this.userModel.create(createUserDto);
-    return 'User created successfully';
   }
 }

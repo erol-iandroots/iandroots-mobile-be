@@ -15,6 +15,9 @@ export class User {
   birthDate: Date;
 
   @Prop({ required: true })
+  knowsBirthTime: boolean;
+
+  @Prop({ required: true })
   birthTime: string;
 
   @Prop({ required: true })
