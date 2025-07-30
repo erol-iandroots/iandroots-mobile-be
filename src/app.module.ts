@@ -8,6 +8,7 @@ import { ConfigModule } from './config/config.module';
 import { UsersModule } from './users/users.module';
 import { ImagesModule } from './images/images.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { AzureStorageModule } from '@nestjs/azure-storage';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     }),
     UsersModule,
     ImagesModule,
+    AzureStorageModule.withConfig({sasKey: process.env['AZURE_STORAGE_SAS_KEY'], accountName: process.env['AZURE_STORAGE_ACCOUNT'], containerName: 'nest-demo-container' }),
   ],
   controllers: [AppController],
   providers: [
