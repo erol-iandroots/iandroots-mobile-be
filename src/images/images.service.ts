@@ -6,32 +6,71 @@ import { Image, ImageDocument } from './entities/image.schema';
 import { AppException } from '../common/exceptions/app.exception';
 import { ErrorCodes } from '../common/enums/error-codes.enum';
 import { FilesAzureService } from 'src/files/file.azure.service';
+import { User, UserDocument } from 'src/users/entities/user.schema';
 
 @Injectable()
 export class ImagesService {
   constructor(
     @InjectModel(Image.name) private readonly imageModel: Model<ImageDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly fileService: FilesAzureService,
   ) {}
 
   async create(createImageDto: CreateImageDto) {
     try {
-      console.log('burada');
       const dummyImageBuffer = this.generateDummyImage(
         createImageDto.imageType,
       );
-      const imageName = `${createImageDto.userId}-${Date.now()}.png`;
-      console.log('burada2');
-      const uploadedImage = await this.fileService.uploadFile(
-        {
-          buffer: dummyImageBuffer,
-          originalname: imageName,
-        } as Express.Multer.File,
-        'images',
-      );
-      console.log(uploadedImage);
+      const user = await this.userModel.findOne({
+        userId: createImageDto.userId,
+      });
+      if (!user) {
+        throw new AppException(
+          ErrorCodes.USER_NOT_FOUND,
+          `User with ID ${createImageDto.userId} not found`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      console.log(user);
+      const imageName = `${user.name}-${Date.now()}.png`;
+
+      const fileObj = {
+        buffer: dummyImageBuffer,
+        originalname: imageName,
+        mimetype: 'image/png',
+        fieldname: 'file',
+        encoding: '7bit',
+        size: dummyImageBuffer.length,
+      } as Express.Multer.File;
+
+      const uploadedImageUrl = await this.fileService.uploadFile(fileObj);
+
+      const imageData = new this.imageModel({
+        imageUrl: uploadedImageUrl,
+        imageName: imageName,
+        userId: createImageDto.userId,
+        prompt:
+          createImageDto.prompt ||
+          `Generated ${createImageDto.imageType} image`,
+        status: 'completed',
+        aiModel: createImageDto.aiModel || 'dummy-generator-v1',
+        isActive: true,
+      });
+
+      const savedImage = await imageData.save();
+
       return {
         success: true,
+        data: {
+          id: savedImage._id,
+          imageUrl: savedImage.imageUrl,
+          imageName: savedImage.imageName,
+          imageType: createImageDto.imageType,
+          status: savedImage.status,
+          prompt: savedImage.prompt,
+          aiModel: savedImage.aiModel,
+          createdAt: (savedImage as any).createdAt,
+        },
         message: 'Image created and uploaded successfully',
         timestamp: new Date().toISOString(),
       };
@@ -43,7 +82,38 @@ export class ImagesService {
       );
     }
   }
-
+  async returnImageByUserId(userId: string) {
+    try {
+      const images = await this.imageModel.find({ userId }).exec();
+      if (!images || images.length === 0) {
+        throw new AppException(
+          ErrorCodes.IMAGE_NOT_FOUND,
+          `No images found for user ID ${userId}`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return {
+        success: true,
+        data: images.map((image) => ({
+          id: image._id,
+          imageUrl: image.imageUrl,
+          imageName: image.imageName,
+          status: image.status,
+          prompt: image.prompt,
+          aiModel: image.aiModel,
+          createdAt: (image as any).createdAt,
+        })),
+        message: 'Images retrieved successfully',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new AppException(
+        ErrorCodes.IMAGE_RETRIEVAL_FAILED,
+        `Failed to retrieve images for user ID ${userId}: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
   private generateDummyImage(imageType: string): Buffer {
     const width = 512;
     const height = 512;

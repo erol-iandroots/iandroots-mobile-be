@@ -11,7 +11,8 @@ export class Image {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
-
+  @Prop({ required: true })
+  imageType: 'partner' | 'celebrity' | 'pet' | 'tattoo' | 'city' | 'art';
   @Prop({ required: false })
   prompt?: string;
 
