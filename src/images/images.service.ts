@@ -48,6 +48,7 @@ export class ImagesService {
       const imageData = new this.imageModel({
         imageUrl: uploadedImageUrl,
         imageName: imageName,
+        imageType: createImageDto.imageType,
         userId: createImageDto.userId,
         prompt:
           createImageDto.prompt ||
