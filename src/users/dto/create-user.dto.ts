@@ -1,5 +1,6 @@
 export class CreateUserDto {
   userId: string;
   name: string;
-  isActive?: boolean;
+  birthDate: Date;
+  birthTime: string;
 }
