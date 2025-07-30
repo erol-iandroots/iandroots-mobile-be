@@ -46,7 +46,13 @@ export class ImagesService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
-
+      if (!createImageDto.prompt && !createImageDto.imageType) {
+        throw new AppException(
+          ErrorCodes.INVALID_IMAGE_FORMAT,
+          'Invalid image format or prompt',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const prompt =
         createImageDto.prompt || `Generate a ${createImageDto.imageType} image`;
       const generatedImageUrl = await this.generateImageFromAPI(
@@ -76,7 +82,8 @@ export class ImagesService {
       });
 
       const savedImage = await imageData.save();
-
+      user.credits -= 1; // Deduct one credit for image generation
+      await user.save();
       return {
         success: true,
         data: {
@@ -103,38 +110,7 @@ export class ImagesService {
       );
     }
   }
-  async returnImageByUserId(userId: string) {
-    try {
-      const images = await this.imageModel.find({ userId }).exec();
-      if (!images || images.length === 0) {
-        throw new AppException(
-          ErrorCodes.IMAGE_NOT_FOUND,
-          `No images found for user ID ${userId}`,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      return {
-        success: true,
-        data: images.map((image) => ({
-          id: image._id,
-          imageUrl: image.imageUrl,
-          imageName: image.imageName,
-          status: image.status,
-          prompt: image.prompt,
-          aiModel: image.aiModel,
-          createdAt: (image as any).createdAt,
-        })),
-        message: 'Images retrieved successfully',
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      throw new AppException(
-        ErrorCodes.IMAGE_RETRIEVAL_FAILED,
-        `Failed to retrieve images for user ID ${userId}: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
+
   private async generateImageFromAPI(
     apiUrl: string,
     apiKey: string,

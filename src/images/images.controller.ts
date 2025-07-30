@@ -21,11 +21,6 @@ export class ImagesController {
     return this.imagesService.create(createImageDto);
   }
 
-  @Get('user/:userId')
-  getUserImages(@Param('userId') userId: string) {
-    return this.imagesService.returnImageByUserId(userId);
-  }
-
   @Get('view/:imageId')
   @SkipLogging()
   async viewImage(@Param('imageId') imageId: string, @Res() res: Response) {
