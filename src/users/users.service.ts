@@ -1,16 +1,16 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { User } from './entities/user.schema';
+import { User, UserDocument } from './entities/user.schema';
 import { Model } from 'mongoose';
-import { AppException } from '@/common/exceptions/app.exception';
-import { ErrorCodes } from '@/common/enums/error-codes.enum';
+import { AppException } from '../common/exceptions/app.exception';
+import { ErrorCodes } from '../common/enums/error-codes.enum';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel('User')
-    private readonly userModel: Model<User>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
   async create(createUserDto: CreateUserDto) {
     try {
