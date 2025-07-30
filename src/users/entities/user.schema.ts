@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
-@Schema()
+@Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
   userId: string;
@@ -8,8 +8,8 @@ export class User {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: false, default: true })
-  isActive: boolean;
+  @Prop({ required: true, enum: ['male', 'female'] })
+  gender: 'male' | 'female';
 
   @Prop({ required: true })
   birthDate: Date;
@@ -25,6 +25,9 @@ export class User {
 
   @Prop({ required: true, default: 0 })
   credits: number;
+
+  @Prop({ required: false, default: true })
+  isActive: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
