@@ -59,6 +59,13 @@ export class FilesAzureService {
     return downloaded;
   }
 
+  public async downloadFileStream(file_name: string, containerName: string) {
+    this.containerName = containerName;
+    const blockBlobClient = await this.getBlobClient(file_name);
+    const downloadBlockBlobResponse = await blockBlobClient.download();
+    return downloadBlockBlobResponse.readableStreamBody;
+  }
+
   private streamToBuffer(readableStream) {
     return new Promise((resolve, reject) => {
       const chunks = [];

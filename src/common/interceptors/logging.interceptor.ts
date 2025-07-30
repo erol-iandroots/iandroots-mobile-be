@@ -5,19 +5,31 @@ import {
   CallHandler,
   Logger,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { Request, Response } from 'express';
+import { Request } from 'express';
+import { SKIP_LOGGING_KEY } from '../decorators/skip-logging.decorator';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(LoggingInterceptor.name);
 
+  constructor(private reflector: Reflector) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const skipLogging = this.reflector.getAllAndOverride<boolean>(
+      SKIP_LOGGING_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (skipLogging) {
+      return next.handle();
+    }
+
     const now = Date.now();
     const ctx = context.switchToHttp();
     const request = ctx.getRequest<Request>();
-    const response = ctx.getResponse<Response>();
 
     const { method, url, ip, headers } = request;
     const userAgent = headers['user-agent'] || '';
@@ -35,7 +47,24 @@ export class LoggingInterceptor implements NestInterceptor {
       tap({
         next: (responseData) => {
           const delay = Date.now() - now;
-          const statusCode = response.statusCode;
+          const statusCode = context.switchToHttp().getResponse().statusCode;
+
+          const getResponseSize = (data: any): number => {
+            if (data === undefined || data === null) {
+              return 0;
+            }
+            if (typeof data === 'string') {
+              return data.length;
+            }
+            if (Buffer.isBuffer(data)) {
+              return data.length;
+            }
+            try {
+              return JSON.stringify(data).length;
+            } catch {
+              return 0;
+            }
+          };
 
           if (statusCode >= 400) {
             this.logger.warn({
@@ -44,7 +73,7 @@ export class LoggingInterceptor implements NestInterceptor {
               url,
               statusCode,
               delay: `${delay}ms`,
-              responseSize: JSON.stringify(responseData).length,
+              responseSize: getResponseSize(responseData),
               timestamp: new Date().toISOString(),
             });
           } else {
@@ -54,7 +83,7 @@ export class LoggingInterceptor implements NestInterceptor {
               url,
               statusCode,
               delay: `${delay}ms`,
-              responseSize: JSON.stringify(responseData).length,
+              responseSize: getResponseSize(responseData),
               timestamp: new Date().toISOString(),
             });
           }

@@ -1,6 +1,8 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
+import { Readable } from 'stream';
 import { CreateImageDto } from './dto/create-image.dto';
 import { Image, ImageDocument } from './entities/image.schema';
 import { AppException } from '../common/exceptions/app.exception';
@@ -14,13 +16,11 @@ export class ImagesService {
     @InjectModel(Image.name) private readonly imageModel: Model<ImageDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly fileService: FilesAzureService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(createImageDto: CreateImageDto) {
     try {
-      const dummyImageBuffer = this.generateDummyImage(
-        createImageDto.imageType,
-      );
       const user = await this.userModel.findOne({
         userId: createImageDto.userId,
       });
@@ -31,30 +31,47 @@ export class ImagesService {
           HttpStatus.NOT_FOUND,
         );
       }
-      console.log(user);
+
+      const imageGenerationUrl = this.configService.get<string>(
+        'IMAGE_GENERATION_URL',
+      );
+      const imageGenerationKey = this.configService.get<string>(
+        'IMAGE_GENERATION_KEY',
+      );
+
+      if (!imageGenerationUrl || !imageGenerationKey) {
+        throw new AppException(
+          ErrorCodes.IMAGE_GENERATION_FAILED,
+          'Image generation configuration is missing',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      const prompt =
+        createImageDto.prompt || `Generate a ${createImageDto.imageType} image`;
+      const generatedImageUrl = await this.generateImageFromAPI(
+        imageGenerationUrl,
+        imageGenerationKey,
+        prompt,
+        createImageDto.imageType,
+      );
+
       const imageName = `${user.name}-${Date.now()}.png`;
 
-      const fileObj = {
-        buffer: dummyImageBuffer,
-        originalname: imageName,
-        mimetype: 'image/png',
-        fieldname: 'file',
-        encoding: '7bit',
-        size: dummyImageBuffer.length,
-      } as Express.Multer.File;
-
-      const uploadedImageUrl = await this.fileService.uploadFile(fileObj);
+      const imageBuffer = await this.downloadImageFromUrl(generatedImageUrl);
+      const permanentImageUrl = await this.uploadImageToBlob(
+        imageBuffer,
+        imageName,
+      );
 
       const imageData = new this.imageModel({
-        imageUrl: uploadedImageUrl,
+        imageUrl: permanentImageUrl,
         imageName: imageName,
         imageType: createImageDto.imageType,
         userId: createImageDto.userId,
-        prompt:
-          createImageDto.prompt ||
-          `Generated ${createImageDto.imageType} image`,
+        prompt: prompt,
         status: 'completed',
-        aiModel: createImageDto.aiModel || 'dummy-generator-v1',
+        aiModel: createImageDto.aiModel || 'api-generator-v1',
         isActive: true,
       });
 
@@ -72,13 +89,16 @@ export class ImagesService {
           aiModel: savedImage.aiModel,
           createdAt: (savedImage as any).createdAt,
         },
-        message: 'Image created and uploaded successfully',
+        message: 'Image created successfully',
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
+      }
       throw new AppException(
-        ErrorCodes.IMAGE_UPLOAD_FAILED,
-        `Failed to create and upload image: ${error.message}`,
+        ErrorCodes.IMAGE_GENERATION_FAILED,
+        `Failed to generate image: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -115,37 +135,133 @@ export class ImagesService {
       );
     }
   }
-  private generateDummyImage(imageType: string): Buffer {
-    const width = 512;
-    const height = 512;
-    const bytesPerPixel = 4;
-    const totalBytes = width * height * bytesPerPixel;
+  private async generateImageFromAPI(
+    apiUrl: string,
+    apiKey: string,
+    prompt: string,
+    imageType: string,
+  ): Promise<string> {
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          imageType: imageType,
+          size: '1024x1024',
+          quality: 'hd',
+          style: 'natural',
+          n: 1,
+        }),
+      });
 
-    const colors = {
-      partner: [255, 182, 193, 255],
-      celebrity: [255, 215, 0, 255],
-      pet: [144, 238, 144, 255],
-      Tattoo: [128, 0, 128, 255],
-      city: [135, 206, 235, 255],
-      art: [255, 165, 0, 255],
-    };
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
 
-    const color = colors[imageType] || [128, 128, 128, 255];
-    const buffer = Buffer.alloc(totalBytes);
+      const result = await response.json();
 
-    for (let i = 0; i < totalBytes; i += 4) {
-      buffer[i] = color[0];
-      buffer[i + 1] = color[1];
-      buffer[i + 2] = color[2];
-      buffer[i + 3] = color[3];
+      if (!result.data || !result.data[0] || !result.data[0].url) {
+        throw new Error('Invalid response format from image generation API');
+      }
+
+      return result.data[0].url;
+    } catch (error) {
+      throw new AppException(
+        ErrorCodes.IMAGE_GENERATION_FAILED,
+        `Image generation API error: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
+  }
 
-    const pngHeader = Buffer.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00,
-      0x08, 0x06, 0x00, 0x00, 0x00, 0xf4, 0x78, 0xd4,
-    ]);
+  private async downloadImageFromUrl(imageUrl: string): Promise<Buffer> {
+    try {
+      const response = await fetch(imageUrl);
 
-    return Buffer.concat([pngHeader, buffer]);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download image: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      throw new AppException(
+        ErrorCodes.IMAGE_GENERATION_FAILED,
+        `Failed to download generated image: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async uploadImageToBlob(
+    imageBuffer: Buffer,
+    imageName: string,
+  ): Promise<string> {
+    try {
+      const fileObj = {
+        buffer: imageBuffer,
+        originalname: imageName,
+        mimetype: 'image/png',
+        fieldname: 'file',
+        encoding: '7bit',
+        size: imageBuffer.length,
+      } as Express.Multer.File;
+
+      return await this.fileService.uploadFile(fileObj);
+    } catch (error) {
+      throw new AppException(
+        ErrorCodes.IMAGE_UPLOAD_FAILED,
+        `Failed to upload image to blob storage: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getImageStream(imageId: string): Promise<Readable> {
+    try {
+      const image = await this.imageModel.findById(imageId).exec();
+      if (!image) {
+        throw new AppException(
+          ErrorCodes.IMAGE_NOT_FOUND,
+          `Image with ID ${imageId} not found`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const containerName = this.configService.get<string>(
+        'AZURE_CONTAINER_NAME',
+      );
+      if (!containerName) {
+        throw new AppException(
+          ErrorCodes.INTERNAL_SERVER_ERROR,
+          'Azure container configuration is missing',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      const imageUrl = new URL(image.imageUrl);
+      const fileName = imageUrl.pathname.split('/').pop();
+
+      const stream = await this.fileService.downloadFileStream(
+        fileName,
+        containerName,
+      );
+      return stream as Readable;
+    } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
+      }
+      throw new AppException(
+        ErrorCodes.IMAGE_RETRIEVAL_FAILED,
+        `Failed to retrieve image stream: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
