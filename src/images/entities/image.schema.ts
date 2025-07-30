@@ -23,9 +23,6 @@ export class Image {
   })
   status: 'pending' | 'completed' | 'failed';
 
-  @Prop({ required: false })
-  aiModel?: string;
-
   @Prop({ required: false, default: true })
   isActive: boolean;
 }

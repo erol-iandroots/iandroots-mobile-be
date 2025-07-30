@@ -77,7 +77,6 @@ export class ImagesService {
         userId: createImageDto.userId,
         prompt: prompt,
         status: 'completed',
-        aiModel: createImageDto.aiModel || 'api-generator-v1',
         isActive: true,
       });
 
@@ -93,7 +92,6 @@ export class ImagesService {
           imageType: createImageDto.imageType,
           status: savedImage.status,
           prompt: savedImage.prompt,
-          aiModel: savedImage.aiModel,
           createdAt: (savedImage as any).createdAt,
         },
         message: 'Image created successfully',
