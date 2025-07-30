@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './entities/user.schema';
 import { Model } from 'mongoose';
+import { AppException } from '@/common/exceptions/app.exception';
+import { ErrorCodes } from '@/common/enums/error-codes.enum';
 
 @Injectable()
 export class UsersService {
@@ -16,21 +17,14 @@ export class UsersService {
       userId: createUserDto.userId,
     });
     if (existingUser) {
+      throw new AppException(
+        ErrorCodes.USER_ALREADY_EXISTS,
+        'User with this userId already exists',
+        HttpStatus.CONFLICT,
+      );
       return 'User already exists';
     }
     await this.userModel.create(createUserDto);
     return 'User created successfully';
-  }
-
-  findAll() {
-    return `This action returns all users`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
   }
 }
