@@ -20,6 +20,19 @@ export class ImagesController {
   create(@Body() createImageDto: CreateImageDto) {
     return this.imagesService.create(createImageDto);
   }
+  @Get('/images')
+  async getAllImages(@Res() res: Response) {
+    try {
+      const images = await this.imagesService.getAllImages();
+      res.status(HttpStatus.OK).json(images);
+    } catch {
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Error fetching images',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 
   @Get('view/:imageId')
   @SkipLogging()

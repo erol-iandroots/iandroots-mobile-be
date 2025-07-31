@@ -109,6 +109,27 @@ export class ImagesService {
     }
   }
 
+  async getAllImages() {
+    try {
+      const images = await this.imageModel.find({ isActive: true }).exec();
+      return images.map((image) => ({
+        id: image._id,
+        imageUrl: image.imageUrl,
+        imageName: image.imageName,
+        imageType: image.imageType,
+        status: image.status,
+        prompt: image.prompt,
+        createdAt: (image as any).createdAt,
+      }));
+    } catch (error) {
+      throw new AppException(
+        ErrorCodes.IMAGE_RETRIEVAL_FAILED,
+        `Failed to retrieve images: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   private async generateImageFromAPI(
     apiUrl: string,
     apiKey: string,
@@ -127,7 +148,7 @@ export class ImagesService {
           imageType: imageType,
           size: '1024x1024',
           quality: 'hd',
-          style: 'natural',
+          style: 'vivid',
           n: 1,
         }),
       });
