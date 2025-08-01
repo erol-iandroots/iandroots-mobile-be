@@ -46,15 +46,10 @@ export class ImagesService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
-      if (!createImageDto.prompt && !createImageDto.imageType) {
-        throw new AppException(
-          ErrorCodes.INVALID_IMAGE_FORMAT,
-          'Invalid image format or prompt',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const prompt =
-        createImageDto.prompt || `Generate a ${createImageDto.imageType} image`;
+
+      // Generate dynamic prompt based on imageType and birth chart
+      const prompt = this.generateDynamicPrompt(createImageDto);
+
       const generatedImageUrl = await this.generateImageFromAPI(
         imageGenerationUrl,
         imageGenerationKey,
@@ -258,5 +253,182 @@ export class ImagesService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  private generateDynamicPrompt(createImageDto: CreateImageDto): string {
+    const { imageType, sunSign, moonSign, risingSign, birthDate, prompt, birthTime } = createImageDto;
+    
+    // If custom prompt is provided, use it
+    if (prompt) {
+      return prompt;
+    }
+
+    const birthYear = new Date(birthDate).getFullYear();
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - birthYear;
+
+    switch (imageType) {
+      case 'partner':
+        return this.generatePartnerPrompt(sunSign, moonSign, risingSign,birthDate, birthTime);
+      
+      case 'celebrity':
+        // For now, return a generic celebrity prompt
+        return `Generate a celebrity image`;
+      
+      case 'pet':
+        return this.generatePetPrompt(sunSign, moonSign, risingSign,birthDate, birthTime);
+      
+      case 'tattoo':
+        return this.generateTattooPrompt(sunSign, moonSign, risingSign,birthDate, birthTime);
+      
+      case 'city':
+        return this.generateCityPrompt(sunSign, moonSign, risingSign,birthDate, birthTime);
+      
+      case 'art':
+        return this.generateArtPrompt(sunSign, moonSign, risingSign,birthDate, birthTime);
+      
+      default:
+        return `Generate a ${imageType} image`;
+    }
+  }
+
+  private generatePartnerPrompt(sunSign: string, moonSign: string, risingSign: string,birthDate: Date, birthTime: string): string {
+    const compatibilityTraits = this.getCompatibilityTraits(sunSign, moonSign, risingSign);
+    return `Generate an attractive person who would be compatible with someone who has born on ${birthDate} at ${birthTime} and has ${sunSign} sun sign, ${moonSign} moon sign, and ${risingSign} rising sign. The person should embody ${compatibilityTraits.join(', ')} qualities. Create a realistic, beautiful portrait.`;
+  }
+
+  private generatePetPrompt(sunSign: string, moonSign: string, risingSign: string,birthDate: Date, birthTime: string): string {
+    const petTraits = this.getPetTraits(sunSign, moonSign, risingSign);
+    return `Generate a ${petTraits.animal} that matches the personality of someone who has born on ${birthDate} at ${birthTime} and has ${sunSign} sun sign, ${moonSign} moon sign, and ${risingSign} rising sign. The pet should have ${petTraits.characteristics.join(', ')} qualities. Create a cute, realistic animal portrait.`;
+  }
+
+  private generateTattooPrompt(sunSign: string, moonSign: string, risingSign: string,birthDate: Date, birthTime: string): string {
+    const tattooElements = this.getTattooElements(sunSign, moonSign, risingSign);
+    return `Design a meaningful tattoo that incorporates ${tattooElements.symbols.join(', ')} symbolizing ${tattooElements.meanings.join(', ')}. The design should reflect the personality of someone who has born on ${birthDate} at ${birthTime} and has ${sunSign} sun, ${moonSign} moon, and ${risingSign} rising. Create an artistic, detailed tattoo design.`;
+  }
+
+  private generateCityPrompt(sunSign: string, moonSign: string, risingSign: string,birthDate: Date, birthTime: string): string {
+    const cityTraits = this.getCityTraits(sunSign, moonSign, risingSign);
+    return `Generate a beautiful cityscape that would appeal to someone who has born on ${birthDate} at ${birthTime} and has ${sunSign} sun sign, ${moonSign} moon sign, and ${risingSign} rising sign. The city should have ${cityTraits.characteristics.join(', ')} and feel ${cityTraits.atmosphere.join(', ')}. Create a stunning urban landscape.`;
+  }
+
+  private generateArtPrompt(sunSign: string, moonSign: string, risingSign: string,birthDate: Date, birthTime: string): string {
+    const artStyle = this.getArtStyle(sunSign, moonSign, risingSign);
+    return `Create an artistic piece in ${artStyle.style} style that resonates with someone who has born on ${birthDate} at ${birthTime} and has ${sunSign} sun sign, ${moonSign} moon sign, and ${risingSign} rising sign. The artwork should evoke ${artStyle.emotions.join(', ')} and use ${artStyle.colors.join(', ')} colors. Make it visually striking and meaningful.`;
+  }
+
+  private getCompatibilityTraits(sunSign: string, moonSign: string, risingSign: string): string[] {
+    // This is a simplified compatibility system - you can expand this based on astrological knowledge
+    const signTraits = {
+      'aries': ['confident', 'adventurous', 'energetic'],
+      'taurus': ['stable', 'sensual', 'reliable'],
+      'gemini': ['intellectual', 'communicative', 'versatile'],
+      'cancer': ['nurturing', 'emotional', 'intuitive'],
+      'leo': ['creative', 'generous', 'charismatic'],
+      'virgo': ['practical', 'analytical', 'helpful'],
+      'libra': ['harmonious', 'artistic', 'diplomatic'],
+      'scorpio': ['intense', 'mysterious', 'passionate'],
+      'sagittarius': ['adventurous', 'philosophical', 'optimistic'],
+      'capricorn': ['ambitious', 'responsible', 'disciplined'],
+      'aquarius': ['innovative', 'independent', 'humanitarian'],
+      'pisces': ['compassionate', 'artistic', 'spiritual']
+    };
+
+    const traits = [
+      ...(signTraits[sunSign.toLowerCase()] || ['balanced']),
+      ...(signTraits[moonSign.toLowerCase()] || ['emotionally supportive']),
+      ...(signTraits[risingSign.toLowerCase()] || ['approachable'])
+    ];
+
+    return [...new Set(traits)]; // Remove duplicates
+  }
+
+  private getPetTraits(sunSign: string, moonSign: string, risingSign: string): { animal: string, characteristics: string[] } {
+    const signPets = {
+      'aries': { animal: 'energetic dog', characteristics: ['playful', 'active', 'loyal'] },
+      'taurus': { animal: 'calm cat', characteristics: ['peaceful', 'affectionate', 'steady'] },
+      'gemini': { animal: 'colorful parrot', characteristics: ['intelligent', 'social', 'communicative'] },
+      'cancer': { animal: 'gentle rabbit', characteristics: ['soft', 'nurturing', 'sensitive'] },
+      'leo': { animal: 'majestic cat', characteristics: ['regal', 'confident', 'beautiful'] },
+      'virgo': { animal: 'well-groomed dog', characteristics: ['clean', 'organized', 'helpful'] },
+      'libra': { animal: 'graceful cat', characteristics: ['elegant', 'balanced', 'beautiful'] },
+      'scorpio': { animal: 'mysterious cat', characteristics: ['intense', 'loyal', 'protective'] },
+      'sagittarius': { animal: 'adventurous dog', characteristics: ['free-spirited', 'energetic', 'friendly'] },
+      'capricorn': { animal: 'dignified dog', characteristics: ['responsible', 'steady', 'reliable'] },
+      'aquarius': { animal: 'unique exotic pet', characteristics: ['independent', 'unusual', 'intelligent'] },
+      'pisces': { animal: 'gentle fish', characteristics: ['peaceful', 'flowing', 'dreamy'] }
+    };
+
+    return signPets[sunSign.toLowerCase()] || { animal: 'friendly pet', characteristics: ['loving', 'companion'] };
+  }
+
+  private getTattooElements(sunSign: string, moonSign: string, risingSign: string): { symbols: string[], meanings: string[] } {
+    const signElements = {
+      'aries': { symbols: ['ram horns', 'fire elements'], meanings: ['courage', 'leadership'] },
+      'taurus': { symbols: ['bull', 'earth elements'], meanings: ['strength', 'stability'] },
+      'gemini': { symbols: ['twins', 'air symbols'], meanings: ['duality', 'communication'] },
+      'cancer': { symbols: ['crab', 'moon phases'], meanings: ['protection', 'intuition'] },
+      'leo': { symbols: ['lion', 'sun rays'], meanings: ['pride', 'creativity'] },
+      'virgo': { symbols: ['maiden', 'wheat'], meanings: ['purity', 'harvest'] },
+      'libra': { symbols: ['scales', 'balance'], meanings: ['harmony', 'justice'] },
+      'scorpio': { symbols: ['scorpion', 'phoenix'], meanings: ['transformation', 'intensity'] },
+      'sagittarius': { symbols: ['archer', 'arrow'], meanings: ['adventure', 'truth'] },
+      'capricorn': { symbols: ['mountain goat', 'peaks'], meanings: ['achievement', 'perseverance'] },
+      'aquarius': { symbols: ['water bearer', 'waves'], meanings: ['innovation', 'humanity'] },
+      'pisces': { symbols: ['fish', 'ocean waves'], meanings: ['spirituality', 'compassion'] }
+    };
+
+    const sunElements = signElements[sunSign.toLowerCase()] || { symbols: ['stars'], meanings: ['guidance'] };
+    const moonElements = signElements[moonSign.toLowerCase()] || { symbols: ['moon'], meanings: ['emotion'] };
+    
+    return {
+      symbols: [...sunElements.symbols, ...moonElements.symbols],
+      meanings: [...sunElements.meanings, ...moonElements.meanings]
+    };
+  }
+
+  private getCityTraits(sunSign: string, moonSign: string, risingSign: string): { characteristics: string[], atmosphere: string[] } {
+    const signCities = {
+      'aries': { characteristics: ['modern skyscrapers', 'busy streets'], atmosphere: ['energetic', 'fast-paced'] },
+      'taurus': { characteristics: ['green parks', 'stable architecture'], atmosphere: ['peaceful', 'grounded'] },
+      'gemini': { characteristics: ['diverse neighborhoods', 'communication hubs'], atmosphere: ['vibrant', 'connected'] },
+      'cancer': { characteristics: ['waterfront', 'cozy districts'], atmosphere: ['homey', 'nurturing'] },
+      'leo': { characteristics: ['grand architecture', 'entertainment districts'], atmosphere: ['glamorous', 'creative'] },
+      'virgo': { characteristics: ['clean streets', 'organized layout'], atmosphere: ['efficient', 'orderly'] },
+      'libra': { characteristics: ['beautiful architecture', 'artistic districts'], atmosphere: ['harmonious', 'aesthetic'] },
+      'scorpio': { characteristics: ['mysterious alleys', 'deep architecture'], atmosphere: ['intense', 'transformative'] },
+      'sagittarius': { characteristics: ['open spaces', 'travel hubs'], atmosphere: ['adventurous', 'expansive'] },
+      'capricorn': { characteristics: ['business district', 'mountain views'], atmosphere: ['ambitious', 'structured'] },
+      'aquarius': { characteristics: ['innovative buildings', 'tech districts'], atmosphere: ['futuristic', 'progressive'] },
+      'pisces': { characteristics: ['flowing water features', 'dreamy architecture'], atmosphere: ['mystical', 'flowing'] }
+    };
+
+    return signCities[sunSign.toLowerCase()] || { 
+      characteristics: ['beautiful buildings', 'tree-lined streets'], 
+      atmosphere: ['welcoming', 'balanced'] 
+    };
+  }
+
+  private getArtStyle(sunSign: string, moonSign: string, risingSign: string): { style: string, emotions: string[], colors: string[] } {
+    const signArt = {
+      'aries': { style: 'bold abstract', emotions: ['energy', 'passion'], colors: ['red', 'orange'] },
+      'taurus': { style: 'realistic landscape', emotions: ['peace', 'stability'], colors: ['green', 'brown'] },
+      'gemini': { style: 'mixed media collage', emotions: ['curiosity', 'versatility'], colors: ['yellow', 'silver'] },
+      'cancer': { style: 'emotional portrait', emotions: ['nostalgia', 'comfort'], colors: ['silver', 'white'] },
+      'leo': { style: 'dramatic baroque', emotions: ['pride', 'joy'], colors: ['gold', 'orange'] },
+      'virgo': { style: 'detailed realistic', emotions: ['precision', 'clarity'], colors: ['navy', 'white'] },
+      'libra': { style: 'harmonious composition', emotions: ['beauty', 'balance'], colors: ['pink', 'blue'] },
+      'scorpio': { style: 'dark surrealism', emotions: ['intensity', 'mystery'], colors: ['deep red', 'black'] },
+      'sagittarius': { style: 'adventurous landscape', emotions: ['freedom', 'optimism'], colors: ['purple', 'turquoise'] },
+      'capricorn': { style: 'classical architecture', emotions: ['achievement', 'structure'], colors: ['black', 'grey'] },
+      'aquarius': { style: 'futuristic digital', emotions: ['innovation', 'rebellion'], colors: ['electric blue', 'neon'] },
+      'pisces': { style: 'dreamy watercolor', emotions: ['spirituality', 'compassion'], colors: ['sea green', 'lavender'] }
+    };
+
+    return signArt[sunSign.toLowerCase()] || { 
+      style: 'contemporary', 
+      emotions: ['inspiration', 'creativity'], 
+      colors: ['blue', 'white'] 
+    };
   }
 }
