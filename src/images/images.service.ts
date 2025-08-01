@@ -256,12 +256,9 @@ export class ImagesService {
   }
 
   private generateDynamicPrompt(createImageDto: CreateImageDto): string {
-    const { imageType, sunSign, moonSign, risingSign, birthDate, prompt, birthTime } = createImageDto;
+    const { imageType, sunSign, moonSign, risingSign, birthDate, birthTime } = createImageDto;
     
-    // If custom prompt is provided, use it
-    if (prompt) {
-      return prompt;
-    }
+  
 
     const birthYear = new Date(birthDate).getFullYear();
     const currentYear = new Date().getFullYear();
