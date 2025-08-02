@@ -6,5 +6,8 @@ export class CreateUserDto {
   knowsBirthTime: boolean;
   birthTime: string;
   birthPlace: string;
-  interestedIn: 'boys' | 'girls';
+  interestedIn: 'boys' | 'girls' | 'non-binary';
+  sunSign: string;
+  moonSign: string;
+  risingSign: string;
 }

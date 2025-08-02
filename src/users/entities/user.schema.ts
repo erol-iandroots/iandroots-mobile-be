@@ -32,6 +32,15 @@ export class User {
 
   @Prop({ required: false, default: true })
   isActive: boolean;
+
+  @Prop({ required: true })
+  sunSign: string;
+
+  @Prop({ required: true })
+  moonSign: string;
+
+  @Prop({ required: true })
+  risingSign: string;
 }
 export type UserDocument = User & Document;
 

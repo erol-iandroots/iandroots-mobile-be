@@ -18,11 +18,14 @@ export class UsersService {
         userId: createUserDto.userId,
       });
       if (existingUser) {
-        throw new AppException(
-          ErrorCodes.USER_ALREADY_EXISTS,
-          'User with this userId already exists',
-          HttpStatus.CONFLICT,
-        );
+        //update the user
+        const updatedUser = await this.userModel.updateOne({ userId: createUserDto.userId }, createUserDto);
+        return {
+          success: true,
+          data: updatedUser,
+          message: 'User updated successfully',
+          timestamp: new Date().toISOString(),
+        };
       }
       const newUser = await this.userModel.create(createUserDto);
       return {

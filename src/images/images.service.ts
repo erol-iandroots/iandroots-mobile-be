@@ -31,67 +31,7 @@ export class ImagesService {
           HttpStatus.NOT_FOUND,
         );
       }
-
-      const imageGenerationUrl = this.configService.get<string>(
-        'IMAGE_GENERATION_URL',
-      );
-      const imageGenerationKey = this.configService.get<string>(
-        'IMAGE_GENERATION_KEY',
-      );
-
-      if (!imageGenerationUrl || !imageGenerationKey) {
-        throw new AppException(
-          ErrorCodes.IMAGE_GENERATION_FAILED,
-          'Image generation configuration is missing',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      // Generate dynamic prompt based on imageType and birth chart
-      const prompt = this.generateDynamicPrompt(createImageDto);
-
-      const generatedImageUrl = await this.generateImageFromAPI(
-        imageGenerationUrl,
-        imageGenerationKey,
-        prompt,
-        createImageDto.imageType,
-      );
-
-      const imageName = `${user.name}-${Date.now()}.png`;
-
-      const imageBuffer = await this.downloadImageFromUrl(generatedImageUrl);
-      const permanentImageUrl = await this.uploadImageToBlob(
-        imageBuffer,
-        imageName,
-      );
-
-      const imageData = new this.imageModel({
-        imageUrl: permanentImageUrl,
-        imageName: imageName,
-        imageType: createImageDto.imageType,
-        userId: createImageDto.userId,
-        prompt: prompt,
-        status: 'completed',
-        isActive: true,
-      });
-
-      const savedImage = await imageData.save();
-      user.credits -= 1; // Deduct one credit for image generation
-      await user.save();
-      return {
-        success: true,
-        data: {
-          id: savedImage._id,
-          imageUrl: savedImage.imageUrl,
-          imageName: savedImage.imageName,
-          imageType: createImageDto.imageType,
-          status: savedImage.status,
-          prompt: savedImage.prompt,
-          createdAt: (savedImage as any).createdAt,
-        },
-        message: 'Image created successfully',
-        timestamp: new Date().toISOString(),
-      };
+      const prompt = this.generateDynamicPrompt(createImageDto, user);
     } catch (error) {
       if (error instanceof AppException) {
         throw error;
@@ -255,8 +195,9 @@ export class ImagesService {
     }
   }
 
-  private generateDynamicPrompt(createImageDto: CreateImageDto): string {
-    const { imageType, sunSign, moonSign, risingSign, birthDate, birthTime } = createImageDto;
+  private generateDynamicPrompt(createImageDto: CreateImageDto, user: UserDocument): string {
+    const { imageType } = createImageDto;
+    const { sunSign, moonSign, risingSign, birthDate, birthTime } = user;
     
   
 
