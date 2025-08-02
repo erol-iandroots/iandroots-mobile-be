@@ -22,7 +22,7 @@ export class UsersService {
         const updatedUser = await this.userModel.updateOne({ userId: createUserDto.userId }, createUserDto);
         return {
           success: true,
-          data: updatedUser,
+          userId: createUserDto.userId,
           message: 'User updated successfully',
           timestamp: new Date().toISOString(),
         };
