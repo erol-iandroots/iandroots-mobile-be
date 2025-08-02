@@ -49,6 +49,7 @@ export class ImagesService {
         prompt: prompt,
         status: 'completed',
         isActive: true,
+        ...(createImageDto.imageType === 'partner' && this.generateRandomPartnerSigns()),
       });
 
       const savedImage = await imageData.save();
@@ -64,6 +65,11 @@ export class ImagesService {
           status: savedImage.status,
           prompt: savedImage.prompt,
           createdAt: (savedImage as any).createdAt,
+          ...(createImageDto.imageType === 'partner' && {
+            partnerSunSign: savedImage.partnerSunSign,
+            partnerMoonSign: savedImage.partnerMoonSign,
+            partnerRisingSign: savedImage.partnerRisingSign,
+          }),
         },
         message: 'Image created successfully',
         timestamp: new Date().toISOString(),
@@ -91,11 +97,66 @@ export class ImagesService {
         status: image.status,
         prompt: image.prompt,
         createdAt: (image as any).createdAt,
+        ...(image.imageType === 'partner' && {
+          partnerSunSign: image.partnerSunSign,
+          partnerMoonSign: image.partnerMoonSign,
+          partnerRisingSign: image.partnerRisingSign,
+        }),
       }));
     } catch (error) {
       throw new AppException(
         ErrorCodes.IMAGE_RETRIEVAL_FAILED,
         `Failed to retrieve images: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getUserHistory(userId: string) {
+    try {
+      const imageTypes = ['partner', 'celebrity', 'tattoo', 'city', 'art', 'pet'];
+      const history = {};
+
+      for (const imageType of imageTypes) {
+        const latestImage = await this.imageModel
+          .findOne({
+            userId: userId,
+            imageType: imageType,
+            isActive: true,
+            status: 'completed'
+          })
+          .sort({ createdAt: -1 })
+          .exec();
+
+        if (latestImage) {
+          history[imageType] = {
+            id: latestImage._id,
+            imageUrl: latestImage.imageUrl,
+            imageName: latestImage.imageName,
+            imageType: latestImage.imageType,
+            status: latestImage.status,
+            createdAt: (latestImage as any).createdAt,
+            ...(latestImage.imageType === 'partner' && {
+              partnerSunSign: latestImage.partnerSunSign,
+              partnerMoonSign: latestImage.partnerMoonSign,
+              partnerRisingSign: latestImage.partnerRisingSign,
+            }),
+          };
+        } else {
+          history[imageType] = null;
+        }
+      }
+
+      return {
+        success: true,
+        data: history,
+        message: 'User history retrieved successfully',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new AppException(
+        ErrorCodes.IMAGE_RETRIEVAL_FAILED,
+        `Failed to retrieve user history: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -660,5 +721,34 @@ export class ImagesService {
         colors: ['blue', 'white'],
       }
     );
+  }
+
+  private generateRandomPartnerSigns(): {
+    partnerSunSign: string;
+    partnerMoonSign: string;
+    partnerRisingSign: string;
+  } {
+    const zodiacSigns = [
+      'aries',
+      'taurus',
+      'gemini',
+      'cancer',
+      'leo',
+      'virgo',
+      'libra',
+      'scorpio',
+      'sagittarius',
+      'capricorn',
+      'aquarius',
+      'pisces',
+    ];
+
+    const getRandomSign = () => zodiacSigns[Math.floor(Math.random() * zodiacSigns.length)];
+
+    return {
+      partnerSunSign: getRandomSign(),
+      partnerMoonSign: getRandomSign(),
+      partnerRisingSign: getRandomSign(),
+    };
   }
 }

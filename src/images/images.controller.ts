@@ -34,6 +34,20 @@ export class ImagesController {
     }
   }
 
+  @Get('history/:userId')
+  async getUserHistory(@Param('userId') userId: string, @Res() res: Response) {
+    try {
+      const history = await this.imagesService.getUserHistory(userId);
+      res.status(HttpStatus.OK).json(history);
+    } catch (error) {
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || 'Error fetching user history',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   @Get('view/:imageId')
   @SkipLogging()
   async viewImage(@Param('imageId') imageId: string, @Res() res: Response) {

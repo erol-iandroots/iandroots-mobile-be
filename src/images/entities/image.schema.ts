@@ -25,6 +25,15 @@ export class Image {
 
   @Prop({ required: false, default: true })
   isActive: boolean;
+
+  @Prop({ required: false })
+  partnerSunSign?: string;
+
+  @Prop({ required: false })
+  partnerMoonSign?: string;
+
+  @Prop({ required: false })
+  partnerRisingSign?: string;
 }
 
 export type ImageDocument = Image & Document;
