@@ -17,12 +17,7 @@ export class AppService {
     console.log(`🗄️  Database URL: ${dbUrl}`);
 
     return {
-      message: 'Hello World!',
-      appName,
-      apiVersion,
-      environment: env,
-      database: dbUrl ? 'Connected' : 'Not configured',
-      timestamp: new Date().toISOString(),
+      message: 'Hello World!'
     };
   }
 }
